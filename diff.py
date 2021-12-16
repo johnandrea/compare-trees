@@ -1,7 +1,15 @@
+#!/usr/bin/python3
+
 import sys
 import re
 import difflib
 import readgedcom
+
+# comparison thresholds to determine if a person has a difference
+change_name_threshold = 0.91  #worse towards zero
+change_year_threshold = 2
+
+# but need to have different thresholds to determine if its a different person
 
 
 def input_to_id( s ):
@@ -80,8 +88,7 @@ def list_all_partners( indi, individual, families ):
 
 
 def compare_person( indi1, indi2 ):
-    name_diff_threshold = 0.85  #worse towards zero
-    date_year_threshold = 2
+    # return header_shown which will indicate fo there was a difference
 
     header_shown = False
 
@@ -94,7 +101,7 @@ def compare_person( indi1, indi2 ):
         #print( title, date1, date2 )
         if date1:
            if date2:
-              if abs( date1 - date2 ) >= date_year_threshold:
+              if abs( date1 - date2 ) >= change_year_threshold:
                  shown = show_person_header(shown)
                  print( title, 'difference', date1, ' vs ', date2 )
            else:
@@ -110,14 +117,21 @@ def compare_person( indi1, indi2 ):
     name1 = get_name( indi1 )
     name2 = get_name( indi2 )
     name_diff = difflib.SequenceMatcher(None, name1, name2).ratio()
-    if name_diff < name_diff_threshold:
+    if name_diff < change_name_threshold:
        header_shown = show_person_header( header_shown )
        print( 'Name difference:', name1, ' vs ', name2 )
 
     for d in ['birt','deat']:
-        d1 = get_a_year( indi1, d )
-        d2 = get_a_year( indi2, d )
-        header_shown = compare_person_dates( header_shown, d, d1, d2 )
+        # first check whats given in the input file
+        d1 = get_a_date( indi1, d )
+        d2 = get_a_date( indi2, d )
+        if d1 != d2:
+           # then look closer at the parsed values
+           d1 = get_a_year( indi1, d )
+           d2 = get_a_year( indi2, d )
+           header_shown = compare_person_dates( header_shown, d, d1, d2 )
+
+    return header_shown
 
 
 first = readgedcom.read_file( sys.argv[1] )
@@ -132,12 +146,12 @@ if start_second not in second[readgedcom.PARSED_INDI]:
    print( 'Given key not in second tree', sys.argv[4], file=sys.stderr )
    sys.exit(1)
 
-print( 'Starting with', show_indi( first[readgedcom.PARSED_INDI][start_first] ) )
-print( 'and          ', show_indi( second[readgedcom.PARSED_INDI][start_second] ) )
+ikey = readgedcom.PARSED_INDI
+
+print( 'Starting with', show_indi( first[ikey][start_first] ) )
+print( 'and          ', show_indi( second[ikey][start_second] ) )
 
 # match the trees
 
-#compare_children( start_first, first[readgedcom.PARSED_INDI], first[readgedcom.PARSED_FAM], start_second, second[readgedcom.PARSED_INDI], second[readgedcom.PARSED_FAM] )
-
 # look at the current person
-compare_person( first[readgedcom.PARSED_INDI][start_first], second[readgedcom.PARSED_INDI][start_second] )
+has_diff = compare_person( first[ikey][start_first], second[ikey][start_second] )
