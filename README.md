@@ -13,6 +13,7 @@ Some existing tools mentioned there:
 - TreeView: https://treeview.co.uk
 - yEd: https://www.yworks.com/products/yed
 - Gephi: https://gephi.org
+- Cytoscape: https://cytoscape.org
 - D3: https://observablehq.com/@d3 and https://observablehq.com/@d3/collapsible-tree
 
 My thoughts are to have a graphical display of only differences, with branches (and individuals) highlighted for tree1 to tree2 and another display with changed branches from tree2 to tree1.
