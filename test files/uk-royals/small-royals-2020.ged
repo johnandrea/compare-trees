@@ -156,6 +156,7 @@
 2 DATE 4 AUG 1982
 2 PLAC Music Room, Buckingham, Palace, England
 1 FAMC @F16@
+1 FAMS @F1411@
 0 @I116@ INDI
 1 NAME Henry Charles Albert /Windsor/ Prince
 1 SEX M
@@ -198,6 +199,7 @@
 1 SEX F
 1 BIRT
 2 DATE ABT 1983
+1 FAMS @F1411@
 0 @F12@ FAM
 1 HUSB @I32@
 1 WIFE @I51@
