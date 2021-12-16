@@ -1,6 +1,6 @@
 import sys
 import re
-import metaphone
+import difflib
 import readgedcom
 
 
@@ -23,21 +23,36 @@ def get_name( individual ):
     return result
 
 
-def get_a_date( individual, name ):
+def get_a_year( individual, date_name ):
+    # return the year (int) of the dated event, or None
+    result = None
+    if date_name in individual['best-events']:
+       best = individual['best-events'][date_name]
+       if individual[date_name][best]['date']['is_known']:
+          # get the minimum date if its a range. if not a range min and max are equal
+          result = individual[date_name][best]['date']['min']['year']
+    return result
+
+
+def get_a_date( individual, date_name ):
+    # return the date as given in the input file (or an empty string),
+    # which might contain before/after/etc or be a range
+    # not appropriate for comparison
     result = ''
-    if name in individual['best-events']:
-       best = individual['best-events'][name]
-       if individual[name][best]['date']['is_known']:
-          result = individual[name][best]['date']['in'].lower()
+    if date_name in individual['best-events']:
+       best = individual['best-events'][date_name]
+       if individual[date_name][best]['date']['is_known']:
+          result = individual[date_name][best]['date']['in']
     return result
 
 
 def get_dates( individual ):
+    # for display purposes, not for comparison
     return [ get_a_date( individual, 'birt' ), get_a_date( individual, 'deat' ) ]
 
 
 def show_indi( individual ):
-    #print( individual )
+    # show an person's important details
     dates = get_dates(individual)
     birth = dates[0]
     death = dates[1]
@@ -64,25 +79,45 @@ def list_all_partners( indi, individual, families ):
     return result
 
 
-def compare_children( t1_id, t1_indis, t1_fams, t2_id, t2_indis, t2_fams ):
-    partners1 = list_all_partners( t1_id, t1_indis[t1_id], t1_fams )
-    if partners1:
-       partners2 = list_all_partners( t2_id, t2_indis[t2_id], t2_fams )
-       for fam1 in partners1:
-           partner1 = partners1[fam1]
-           if partner1:
-              name1 = get_name( t1_indis[partner1] )
-              phonetic1 = metaphone.doublemetaphone( name1 )
-              # find the same partner in the other tree
-              for fam2 in partners2:
-                  partner2 = partners2[fam2]
-                  if partner2:
-                     name2 = get_name( t2_indis[partner2] )
-                     phonetic2 = metaphone.doublemetaphone( name2 )
-                     if phonetic1 == phonetic2:
-                        print( 'matched', name1, name2 )
-                     else:
-                        print( 'no match', name1, '=', phonetic1, 'vs', name2, '=', phonetic2 )
+def compare_person( indi1, indi2 ):
+    name_diff_threshold = 0.85  #worse towards zero
+    date_year_threshold = 2
+
+    header_shown = False
+
+    def show_person_header( shown ):
+        if not shown:
+           show_indi( indi1 )
+        return True
+
+    def compare_person_dates( shown, title, date1, date2 ):
+        #print( title, date1, date2 )
+        if date1:
+           if date2:
+              if abs( date1 - date2 ) >= date_year_threshold:
+                 shown = show_person_header(shown)
+                 print( title, 'difference', date1, ' vs ', date2 )
+           else:
+              shown = show_person_header(shown)
+              print( title, 'not in tree2' )
+        else:
+           if date2:
+              shown = show_person_header(shown)
+              print( title, 'not in tree1' )
+        return shown
+
+
+    name1 = get_name( indi1 )
+    name2 = get_name( indi2 )
+    name_diff = difflib.SequenceMatcher(None, name1, name2).ratio()
+    if name_diff < name_diff_threshold:
+       header_shown = show_person_header( header_shown )
+       print( 'Name difference:', name1, ' vs ', name2 )
+
+    for d in ['birt','deat']:
+        d1 = get_a_year( indi1, d )
+        d2 = get_a_year( indi2, d )
+        header_shown = compare_person_dates( header_shown, d, d1, d2 )
 
 
 first = readgedcom.read_file( sys.argv[1] )
@@ -98,11 +133,11 @@ if start_second not in second[readgedcom.PARSED_INDI]:
    sys.exit(1)
 
 print( 'Starting with', show_indi( first[readgedcom.PARSED_INDI][start_first] ) )
-print( 'and', show_indi( second[readgedcom.PARSED_INDI][start_second] ) )
+print( 'and          ', show_indi( second[readgedcom.PARSED_INDI][start_second] ) )
 
 # match the trees
 
-compare_children( start_first, first[readgedcom.PARSED_INDI], first[readgedcom.PARSED_FAM], start_second, second[readgedcom.PARSED_INDI], second[readgedcom.PARSED_FAM] )
+#compare_children( start_first, first[readgedcom.PARSED_INDI], first[readgedcom.PARSED_FAM], start_second, second[readgedcom.PARSED_INDI], second[readgedcom.PARSED_FAM] )
 
-# children
-# sort by their approximate string value
+# look at the current person
+compare_person( first[readgedcom.PARSED_INDI][start_first], second[readgedcom.PARSED_INDI][start_second] )
