@@ -35,7 +35,9 @@
 2 PLAC London, England
 1 CHR
 2 DATE 23 SEP 1900
-1 DEAT Y
+1 DEAT
+2 DATE 30 MAR 2002
+2 PLAC Royal Lodge
 1 FAMS @F1@
 0 @I3@ INDI
 1 NAME Elizabeth_II Alexandra Mary /Windsor/
