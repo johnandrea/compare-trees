@@ -87,38 +87,42 @@ def list_all_partners( indi, individual, families ):
     return result
 
 
+def show_person_header( already_shown, indi ):
+    if not already_shown:
+       print( show_indi( indi ) )
+    return True
+
+
+def get_name_match_value( n1, n2 ):
+    return difflib.SequenceMatcher(None, n1, n2).ratio()
+
+
 def compare_person( indi1, indi2 ):
     # return header_shown which will indicate fo there was a difference
 
     header_shown = False
 
-    def show_person_header( shown ):
-        if not shown:
-           show_indi( indi1 )
-        return True
-
-    def compare_person_dates( shown, title, date1, date2 ):
+    def compare_person_dates( shown, indi1, title, date1, date2 ):
         #print( title, date1, date2 )
         if date1:
            if date2:
               if abs( date1 - date2 ) >= change_year_threshold:
-                 shown = show_person_header(shown)
+                 shown = show_person_header(shown,indi1)
                  print( title, 'difference', date1, ' vs ', date2 )
            else:
-              shown = show_person_header(shown)
+              shown = show_person_header(shown,indi1)
               print( title, 'not in tree2' )
         else:
            if date2:
-              shown = show_person_header(shown)
+              shown = show_person_header(shown,indi1)
               print( title, 'not in tree1' )
         return shown
 
 
     name1 = get_name( indi1 )
     name2 = get_name( indi2 )
-    name_diff = difflib.SequenceMatcher(None, name1, name2).ratio()
-    if name_diff < change_name_threshold:
-       header_shown = show_person_header( header_shown )
+    if get_name_match_value(name1,name2) < change_name_threshold:
+       header_shown = show_person_header( header_shown, indi1 )
        print( 'Name difference:', name1, ' vs ', name2 )
 
     for d in ['birt','deat']:
@@ -129,29 +133,94 @@ def compare_person( indi1, indi2 ):
            # then look closer at the parsed values
            d1 = get_a_year( indi1, d )
            d2 = get_a_year( indi2, d )
-           header_shown = compare_person_dates( header_shown, d, d1, d2 )
+           header_shown = compare_person_dates( header_shown, indi1, d, d1, d2 )
 
     return header_shown
 
 
-first = readgedcom.read_file( sys.argv[1] )
-start_first = input_to_id( sys.argv[2] )
-second = readgedcom.read_file( sys.argv[3] )
-start_second = input_to_id( sys.argv[4] )
+def check_children( p1, people1, fams1, p2, people2, fams2 ):
+    header_shown = False
+    partners1 = list_all_partners( p1, people1[p1], fams1 )
+    partners2 = list_all_partners( p2, people2[p2], fams2 )
 
-if start_first not in first[readgedcom.PARSED_INDI]:
+    if partners1 and partners2:
+       # snag the names of all partners in tree2
+       names2 = dict()
+       for fam2 in partners2:
+           partner2 = partners2[fam2]
+           names2[fam2] = get_name( people2[partner2] )
+       for fam1 in partners1:
+           partner1 = partners1[fam1]
+           name1 = get_name( people1[partner1] )
+           name2 = None
+           match_fam = None
+           for fam2 in partners2:
+               name2 = names2[fam2]
+               #if get_name_match_value( name1, name2 ) >= change_name_threshold:
+               if get_name_match_value( name1, name2 ) >= 0.8:
+                  match_fam = fam2
+                  break
+
+           if match_fam:
+              n_children1 = len( fams1[fam1]['chil'] )
+              n_children2 = len( fams2[match_fam]['chil'] )
+
+              # need to look deeper, if children details changed
+              if n_children1 != n_children2:
+                 header_shown = show_person_header( header_shown, people1[p1] )
+                 print( 'Children differ with', name2, 'from tree1 to tree2' )
+
+    return header_shown
+
+
+def check_spouses( p1, people1, fams1, p2, people2, fams2 ):
+    header_shown = False
+    partners1 = list_all_partners( p1, people1[p1], fams1 )
+    partners2 = list_all_partners( p2, people2[p2], fams2 )
+
+    if partners1:
+       if partners2:
+          # need to look deeper, if partner details changed
+          if len(partners1) != len(partners2):
+             header_shown = show_person_header( header_shown, people1[p1] )
+             print( 'Partner(s) differ from tree1 to tree2' )
+
+       else:
+          header_shown = show_person_header( header_shown, people1[p1] )
+          print( 'Partner(s) removed in tree2' )
+    else:
+       if partners2:
+          header_shown = show_person_header( header_shown, people1[p1] )
+          print( 'Partner(s) added in tree2' )
+
+    return header_shown
+
+
+ikey = readgedcom.PARSED_INDI
+fkey = readgedcom.PARSED_FAM
+
+tree1 = readgedcom.read_file( sys.argv[1] )
+start1 = input_to_id( sys.argv[2] )
+tree2 = readgedcom.read_file( sys.argv[3] )
+start2 = input_to_id( sys.argv[4] )
+
+
+if start1 not in tree1[ikey]:
    print( 'Given key not in first tree', sys.argv[2], file=sys.stderr )
    sys.exit(1)
-if start_second not in second[readgedcom.PARSED_INDI]:
+if start2 not in tree2[ikey]:
    print( 'Given key not in second tree', sys.argv[4], file=sys.stderr )
    sys.exit(1)
 
-ikey = readgedcom.PARSED_INDI
 
-print( 'Starting with', show_indi( first[ikey][start_first] ) )
-print( 'and          ', show_indi( second[ikey][start_second] ) )
+print( 'Starting with', show_indi( tree1[ikey][start1] ) )
+print( 'and          ', show_indi( tree2[ikey][start2] ) )
 
 # match the trees
 
 # look at the current person
-has_diff = compare_person( first[ikey][start_first], second[ikey][start_second] )
+has_diff = compare_person( tree1[ikey][start1], tree2[ikey][start2] )
+
+has_diff = check_spouses( start1, tree1[ikey], tree1[fkey], start2, tree2[ikey], tree2[fkey] )
+
+has_diff = check_children( start1, tree1[ikey], tree1[fkey], start2, tree2[ikey], tree2[fkey] )
