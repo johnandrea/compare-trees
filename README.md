@@ -16,6 +16,9 @@ Some existing tools mentioned there:
 - Cytoscape: https://cytoscape.org
 - D3: https://observablehq.com/@d3 and https://observablehq.com/@d3/collapsible-tree
 
+Other interesting visualizations
+- Exploring Family Trees: https://learnforeverlearn.com/ancestors/
+
 My thoughts are to have a graphical display of only differences, with branches (and individuals) highlighted for tree1 to tree2 and another display with changed branches from tree2 to tree1.
 - User input to indicate a person who is the key to both trees (GEDCOM XREF id?)
 - User options on the amount of variation in names and dates which constiutes a difference
