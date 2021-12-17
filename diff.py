@@ -89,6 +89,7 @@ def list_all_partners( indi, individual, families ):
 
 def show_person_header( already_shown, indi ):
     if not already_shown:
+       print( '' )
        print( show_indi( indi ) )
     return True
 
@@ -97,7 +98,7 @@ def get_name_match_value( n1, n2 ):
     return difflib.SequenceMatcher(None, n1, n2).ratio()
 
 
-def compare_person( indi1, indi2 ):
+def compare_a_person( indi1, indi2 ):
     # return header_shown which will indicate fo there was a difference
 
     header_shown = False
@@ -118,7 +119,6 @@ def compare_person( indi1, indi2 ):
               print( title, 'not in tree1' )
         return shown
 
-
     name1 = get_name( indi1 )
     name2 = get_name( indi2 )
     if get_name_match_value(name1,name2) < change_name_threshold:
@@ -138,26 +138,30 @@ def compare_person( indi1, indi2 ):
     return header_shown
 
 
+def is_same_person( indi1, indi2 ):
+    # should also check on dates
+    #get_name_match_value( name1, name2 ) >= change_name_threshold:
+    name1 = get_name( indi1 )
+    name2 = get_name( indi2 )
+    return get_name_match_value( name1, name2 ) >= 0.8
+
+
 def check_children( p1, people1, fams1, p2, people2, fams2 ):
     header_shown = False
+
+    # checking all the families that person1/tree1 might share with person2/tree2
     partners1 = list_all_partners( p1, people1[p1], fams1 )
     partners2 = list_all_partners( p2, people2[p2], fams2 )
 
     if partners1 and partners2:
-       # snag the names of all partners in tree2
-       names2 = dict()
-       for fam2 in partners2:
-           partner2 = partners2[fam2]
-           names2[fam2] = get_name( people2[partner2] )
        for fam1 in partners1:
            partner1 = partners1[fam1]
-           name1 = get_name( people1[partner1] )
-           name2 = None
            match_fam = None
+           partner2 = None
            for fam2 in partners2:
-               name2 = names2[fam2]
-               #if get_name_match_value( name1, name2 ) >= change_name_threshold:
-               if get_name_match_value( name1, name2 ) >= 0.8:
+               partner2 = partners2[fam2]
+               if is_same_person( people1[partner1], people2[partner2] ):
+                  # that is fam1/tree1 is the same as fam2/tree2
                   match_fam = fam2
                   break
 
@@ -167,6 +171,7 @@ def check_children( p1, people1, fams1, p2, people2, fams2 ):
 
               # need to look deeper, if children details changed
               if n_children1 != n_children2:
+                 name2 = get_name( people2[partner2] )
                  header_shown = show_person_header( header_shown, people1[p1] )
                  print( 'Children differ with', name2, 'from tree1 to tree2' )
 
@@ -175,6 +180,8 @@ def check_children( p1, people1, fams1, p2, people2, fams2 ):
 
 def check_spouses( p1, people1, fams1, p2, people2, fams2 ):
     header_shown = False
+
+    # check all the partners that person 1 might share with person 2
     partners1 = list_all_partners( p1, people1[p1], fams1 )
     partners2 = list_all_partners( p2, people2[p2], fams2 )
 
@@ -192,6 +199,44 @@ def check_spouses( p1, people1, fams1, p2, people2, fams2 ):
        if partners2:
           header_shown = show_person_header( header_shown, people1[p1] )
           print( 'Partner(s) added in tree2' )
+
+    return header_shown
+
+
+def check_parents( p1, people1, fams1, p2, people2, fams2 ):
+    header_shown = False
+    if 'famc' in people1[p1]:
+       fam1 = people1[p1]['famc'][0]
+       if 'famc' in people2[p2]:
+          fam2 = people2[p2]['famc'][0]
+          # this is going the be trouble for same sex couples
+          for partner in ['wife','husb']:
+              partner1 = None
+              partner2 = None
+              if partner in fams1[fam1]:
+                 partner1 = fams1[fam1][partner]
+              if partner in fams2[fam2]:
+                 partner2 = fams2[fam2][partner]
+              if partner1:
+                 if partner2:
+                    if not is_same_person( people1[partner1], people2[partner2] ):
+                       header_shown = show_person_header( header_shown, people1[p1] )
+                       print( 'Parent(', partner, ') different from tree1 to tree2' )
+                 else:
+                    header_shown = show_person_header( header_shown, people1[p1] )
+                    print( 'Parent(', partner, ') removed in tree2' )
+              else:
+                 if partner2:
+                    header_shown = show_person_header( header_shown, people1[p1] )
+                    print( 'Parent(', partner, ') added in tree2' )
+       else:
+          header_shown = show_person_header( header_shown, people1[p1] )
+          print( 'Parent(s) removed in tree2' )
+
+    else:
+      if 'famc' in people2[p2]:
+         header_shown = show_person_header( header_shown, people1[p1] )
+         print( 'Parent(s) added in tree2' )
 
     return header_shown
 
@@ -219,8 +264,10 @@ print( 'and          ', show_indi( tree2[ikey][start2] ) )
 # match the trees
 
 # look at the current person
-has_diff = compare_person( tree1[ikey][start1], tree2[ikey][start2] )
+has_diff = compare_a_person( tree1[ikey][start1], tree2[ikey][start2] )
 
 has_diff = check_spouses( start1, tree1[ikey], tree1[fkey], start2, tree2[ikey], tree2[fkey] )
 
 has_diff = check_children( start1, tree1[ikey], tree1[fkey], start2, tree2[ikey], tree2[fkey] )
+
+has_diff = check_parents( start1, tree1[ikey], tree1[fkey], start2, tree2[ikey], tree2[fkey] )
