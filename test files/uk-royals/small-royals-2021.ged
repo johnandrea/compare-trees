@@ -296,6 +296,7 @@
 2 DATE 9 JAN 1982
 2 PLAC Reading, England
 1 FAMS @F9@
+1 FAMC @F99@
 0 @I25@ INDI
 1 NAME George Alexander Louis /Windsor/
 2 GIVN George Alexander Louis
@@ -386,6 +387,14 @@
 2 DATE 17 DEC 2007
 2 PLAC Surrey, England
 1 FAMC @F12@
+0 @I98@ INDI
+1 NAME Carole /Goldsmith/
+1 SEX F
+1 FAMS @F@
+0 @I99@ INDI
+1 NAME Michael /Middleton/
+1 SEX M
+1 FAMS @F@
 0 @F1@ FAM
 1 HUSB @I1@
 1 WIFE @I2@
@@ -491,4 +500,8 @@
 1 MARR
 2 DATE 19 JUN 1999
 2 PLAC London, England
+0 @F99@ FAM
+1 HUSB @I99@
+1 WIFE @I98@
+1 CHIL @I24@
 0 TRLR
