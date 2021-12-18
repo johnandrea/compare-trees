@@ -1,0 +1,18 @@
+ids of people in the gedcom files
+
+tree 1 | tree 2 | name
+1        1        Origin
+2        2        Dad
+3        3        Mom
+4        4        Spouse-1
+6        6        Child-A
+7        7        Son-in-law
+8        8        Grand-A-1
+9        9        Spouse-2
+12       12       Child-B
+13       -        Dad-in-law
+14       -        Mom-in-law
+ -       15       Child-C
+ -       16       Dau-in-law
+ -       17       Grand-C-1
+ -       18       Grand-C-2
