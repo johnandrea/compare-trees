@@ -1,0 +1,7 @@
+ids from the gedcom files
+
+2020 | 2021 | name
+51   | 2    | The Queen Mum
+52   | 3    | Elizabeth II
+115  | 17   | William
+2999 | 24   | Kate
