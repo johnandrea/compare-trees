@@ -6,7 +6,7 @@ Arguments: tree1file  person1xref   tree2file  person2xref
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.0.1
+v0.0.2
 """
 
 import sys
@@ -144,14 +144,18 @@ def compare_a_person( p1, p2 ):
            compare_person_dates(p1, d, d1, d2 )
 
 
-def is_same_person( t1, p1, t2, p2 ):
-    # should also check on dates
+def person_match_value( t1, p1, t2, p2 ):
+    # should also check dates
     name1 = get_name( t1, p1 )
     name2 = get_name( t2, p2 )
-    # for now, the match valus is a magic number
     value = get_name_match_value( name1, name2 )
     print( 'debug:sameness ', value, name1, ' vs ', name2 )
-    return value >= 0.8
+    return value
+
+
+def is_same_person( t1, p1, t2, p2 ):
+    # for now, the match valus is a magic number
+    return person_match_value( t1, p1, t2, p2 ) >= 0.8
 
 
 def follow_parents( p1, p2 ):
@@ -205,8 +209,81 @@ def follow_parents( p1, p2 ):
          print( 'Parent(s) added in tree2' )
 
 
+def follow_children( f1, f2 ):
+    print( 'debug:follow children' )
+
+    children1 = trees[1][fkey][f1]['chil']
+    children2 = trees[2][fkey][f2]['chil']
+    if children1:
+       if children2:
+          # look harder at child details
+          if len(children1) != len(children2):
+             print( 'Children different from tree1 to tree2' )
+       else:
+         print( 'All children removed in tree2' )
+    else:
+       if children2:
+          print( 'All children added in tree2' )
+
+
 def follow_partners( p1, p2 ):
     print( 'debug:in follow partners', get_name(1,p1) )
+
+    def max_in_matrix( m ):
+        # should be a pythonic way to do this
+        x = -1
+        for i in m:
+            for j in m[i]:
+                x = max( x, m[i][j] )
+        return x
+
+    def match_partners( partners1, partners2 ):
+        # make a matrix of tree1 people to tree2 people
+        # in order to find the best matches
+
+        match_values = dict()
+
+        for fam1 in partners1:
+            partner1 = partners1[fam1]
+            match_values[fam1] = dict()
+            for fam2 in partners2:
+                partner2 = partners2[fam2]
+                match_values[fam1][fam2] = person_match_value( 1, partner1, 2, partner2 )
+
+        # find the best match for each,
+        # so long as it isn't a better match for someone else
+
+        matched1 = dict()
+        matched2 = dict()
+
+        best = max_in_matrix( match_values )
+
+        while best >= 0.88: #magic value for now
+            # where did it occur
+            # there might be a pythonic way to do this
+            for fam1 in partners1:
+                if fam1 not in matched1:
+                   for fam2 in partners2:
+                       if fam2 not in matched2:
+                          #print( 'compare', match_values[fam1][fam2], best )
+                          if match_values[fam1][fam2] >= best:
+                             match_values[fam1][fam2] = -1
+                             matched1[fam1] = fam2
+                             matched2[fam2] = fam1
+            best = max_in_matrix( match_values )
+
+        for fam1 in partners1:
+            partner1 = partners1[fam1]
+            if fam1 in matched1:
+               fam2 = matched1[fam1]
+               follow_person( partner1, partners2[fam2] )
+
+               # now that families, do children
+               follow_children( fam1, fam2 )
+
+            else:
+               print( 'debug:didnt match any partners', get_name(1,partner1), 'tree1 to tree2' )
+
 
     # check all the partners that person 1 might share with person 2
     partners1 = list_all_partners( 1, p1 )
@@ -214,10 +291,7 @@ def follow_partners( p1, p2 ):
 
     if partners1:
        if partners2:
-          # need to look deeper, if partner details changed
-          if len(partners1) != len(partners2):
-             show_person_header( 1, p1 )
-             print( 'Partner(s) differ from tree1 to tree2' )
+          match_partners( partners1, partners2 )
 
        else:
           show_person_header( 1, p1 )
@@ -226,6 +300,7 @@ def follow_partners( p1, p2 ):
        if partners2:
           show_person_header( 1, p1 )
           print( 'Partner(s) added in tree2' )
+
 
 
 def follow_person( p1, p2 ):
