@@ -4,9 +4,12 @@
 Compare two gedcom trees.
 Arguments: tree1file  person1xref   tree2file  person2xref
 
+A person (child,partnermparent) which gets added in tree2 is not deteched,
+in order to do that run the program again reversing the order of the trees.
+
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.0.2
+v0.0.4
 """
 
 import sys
@@ -186,7 +189,7 @@ def follow_parents( p1, p2 ):
               if partner1:
                  if partner2:
                     if is_same_person( 1, partner1, 2, partner2 ):
-                       # now what
+                       # now what, check details
                        print( 'debug:matched parent', partner, get_name(1,partner1) )
                        follow_person( partner1, partner2 )
                     else:
@@ -209,35 +212,78 @@ def follow_parents( p1, p2 ):
          print( 'Parent(s) added in tree2' )
 
 
-def follow_children( f1, f2 ):
-    print( 'debug:follow children' )
+def max_in_matrix( m ):
+    # should be a pythonic way to do this
+    x = -1
+    for i in m:
+        for j in m[i]:
+            x = max( x, m[i][j] )
+    return x
+
+
+def follow_children( p1, partner1, f1, f2 ):
+    global visited_fam
+    if f1 in visited_fam:
+       return
+    visited_fam.append(f1)
+
+    def match_children( p1, partner_name, children1, children2 ):
+        # make a matrix of matches to try gettimg the closest pairings
+        match_values = dict()
+        for c1 in children1:
+            match_values[c1] = dict()
+            for c2 in children2:
+                match_values[c1][c2] = person_match_value( 1, c1, 2, c2 )
+
+        matched1 = dict()
+        matched2 = dict()
+
+        best = max_in_matrix( match_values )
+
+        while best >= 0.88: #magic value for now
+            # where did it occur
+            # there might be a pythonic way to do this
+            for c1 in children1:
+                if c1 not in matched1:
+                   for c2 in children2:
+                       if c2 not in matched2:
+                          if match_values[c1][c2] >= best:
+                             match_values[c1][c2] = -1
+                             matched1[c1] = c2
+                             matched2[c2] = c1
+            best = max_in_matrix( match_values )
+
+        for c1 in children1:
+            if c1 in matched1:
+               follow_person( c1, matched1[c1] )
+
+            else:
+               show_person_header( 1, p1 )
+               print( 'with', partner_name, 'didnt match child', get_name(1,c1), 'tree1 to tree2' )
+
+    partner_name = get_name(1,partner1)
+
+    print( 'debug:follow children', get_name(1,p1),' and ', partner_name )
 
     children1 = trees[1][fkey][f1]['chil']
     children2 = trees[2][fkey][f2]['chil']
     if children1:
        if children2:
-          # look harder at child details
-          if len(children1) != len(children2):
-             print( 'Children different from tree1 to tree2' )
+          match_children( p1, partner_name, children1, children2 )
+
        else:
-         print( 'All children removed in tree2' )
+         show_person_header( 1, p1 )
+         print( 'All children with',partner_name,'removed in tree2' )
     else:
        if children2:
-          print( 'All children added in tree2' )
+          show_person_header( 1, p1 )
+          print( 'All children with',partner_name,'added in tree2' )
 
 
 def follow_partners( p1, p2 ):
     print( 'debug:in follow partners', get_name(1,p1) )
 
-    def max_in_matrix( m ):
-        # should be a pythonic way to do this
-        x = -1
-        for i in m:
-            for j in m[i]:
-                x = max( x, m[i][j] )
-        return x
-
-    def match_partners( partners1, partners2 ):
+    def match_partners( p1, partners1, partners2 ):
         # make a matrix of tree1 people to tree2 people
         # in order to find the best matches
 
@@ -279,10 +325,11 @@ def follow_partners( p1, p2 ):
                follow_person( partner1, partners2[fam2] )
 
                # now that families, do children
-               follow_children( fam1, fam2 )
+               follow_children( p1, partner1, fam1, fam2 )
 
             else:
-               print( 'debug:didnt match any partners', get_name(1,partner1), 'tree1 to tree2' )
+               show_person_header( 1, p1 )
+               print( 'Didnt match partner', get_name(1,partner1), 'tree1 to tree2' )
 
 
     # check all the partners that person 1 might share with person 2
@@ -291,7 +338,7 @@ def follow_partners( p1, p2 ):
 
     if partners1:
        if partners2:
-          match_partners( partners1, partners2 )
+          match_partners( p1, partners1, partners2 )
 
        else:
           show_person_header( 1, p1 )
@@ -307,9 +354,10 @@ def follow_person( p1, p2 ):
     global visited
     if p1 in visited:
        return
-
     visited.append( p1 )
+
     print( 'debug:following person', show_indi( 1, p1 ) )
+
     follow_parents( p1, p2 )
     follow_partners( p1, p2 )
 
@@ -348,6 +396,7 @@ print( 'and          ', show_indi( 2, starts[2] ) )
 
 # prevent double visitations of the same person
 visited = []
+visited_fam = []
 
 # first, look at the start person
 compare_a_person( starts[1], starts[2] )
