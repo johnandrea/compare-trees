@@ -27,3 +27,13 @@ My thoughts are to have a graphical display of only differences, with branches (
 - Collapsable branches are required in the display
 
 A discussion is open for this project.
+
+## Running ##
+
+Run the program with:
+'''
+diff.py  family1.ged  xref1  family2.ged  xref2 >report.out
+'''
+
+where the xref is the id in each gedcom file for a person who exists in both.
+So far the program only outputs a simple text report.
