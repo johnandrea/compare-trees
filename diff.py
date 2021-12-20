@@ -9,7 +9,7 @@ in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.0.4
+v0.0.5
 """
 
 import sys
@@ -17,11 +17,15 @@ import re
 import difflib
 import readgedcom
 
-# comparison thresholds to determine if a person has a difference
-change_name_threshold = 0.91  #worse towards zero
-change_year_threshold = 2
+show_debug = False
 
-# but need to have different thresholds to determine if its a different person
+# how much change for a structure/branch difference
+branch_name_threshold = 0.88
+branch_date_threshold = 750
+
+# how much change to report a person details difference
+report_name_threshold = 0.92
+report_date_threshold = 400  #days
 
 
 def input_to_id( s ):
@@ -116,23 +120,22 @@ def get_name_match_value( n1, n2 ):
 def compare_a_person( p1, p2 ):
 
     def compare_person_dates( p1, title, date1, date2 ):
-        #print( title, date1, date2 )
         if date1:
            if date2:
-              if abs( date1 - date2 ) >= change_year_threshold:
+              if abs( date1 - date2 ) >= report_date_threshold:
                  show_person_header(1,p1)
                  print( title, 'difference', date1, ' vs ', date2 )
            else:
               show_person_header(1,p1)
-              print( title, 'not in tree2' )
+              print( title, 'not in second tree' )
         else:
            if date2:
               show_person_header(1,p1)
-              print( title, 'not in tree1' )
+              print( title, 'not in first tree' )
 
     name1 = get_name( 1, p1 )
     name2 = get_name( 2, p2 )
-    if get_name_match_value(name1,name2) < change_name_threshold:
+    if get_name_match_value(name1,name2) < report_name_threshold:
        show_person_header(1,p1)
        print( 'Name difference:', name1, ' vs ', name2 )
 
@@ -152,7 +155,8 @@ def person_match_value( t1, p1, t2, p2 ):
     name1 = get_name( t1, p1 )
     name2 = get_name( t2, p2 )
     value = get_name_match_value( name1, name2 )
-    print( 'debug:sameness ', value, name1, ' vs ', name2 )
+    if show_debug:
+       print( 'debug:sameness ', value, name1, ' vs ', name2 )
     return value
 
 
@@ -162,7 +166,8 @@ def is_same_person( t1, p1, t2, p2 ):
 
 
 def follow_parents( p1, p2 ):
-    print( 'debug:follow parents of', get_name(1,p1) )
+    if show_debug:
+       print( 'debug:follow parents of', get_name(1,p1) )
 
     def get_famc( t, p ):
         result = None
@@ -190,26 +195,27 @@ def follow_parents( p1, p2 ):
                  if partner2:
                     if is_same_person( 1, partner1, 2, partner2 ):
                        # now what, check details
-                       print( 'debug:matched parent', partner, get_name(1,partner1) )
+                       if show_debug:
+                          print( 'debug:matched parent', partner, get_name(1,partner1) )
                        follow_person( partner1, partner2 )
                     else:
                        show_person_header( 1, p1 )
-                       print( 'Parent(', partner, ') different from tree1 to tree2' )
+                       print( 'Parent(', partner, ') different from first to second' )
                  else:
                     show_person_header( 1, p1 )
-                    print( 'Parent(', partner, ') removed in tree2' )
+                    print( 'Parent(', partner, ') removed in second' )
               else:
                  if partner2:
                     show_person_header( 1, p1 )
-                    print( 'Parent(', partner, ') added in tree2' )
+                    print( 'Parent(', partner, ') added in second' )
        else:
           show_person_header( 1, p1 )
-          print( 'Parent(s) removed in tree2' )
+          print( 'Parent(s) removed in second' )
 
     else:
       if fam2:
          show_person_header( 1, p1 )
-         print( 'Parent(s) added in tree2' )
+         print( 'Parent(s) added in second' )
 
 
 def max_in_matrix( m ):
@@ -259,11 +265,12 @@ def follow_children( p1, partner1, f1, f2 ):
 
             else:
                show_person_header( 1, p1 )
-               print( 'with', partner_name, 'didnt match child', get_name(1,c1), 'tree1 to tree2' )
+               print( 'with', partner_name, 'didnt match child', get_name(1,c1), 'first to second' )
 
     partner_name = get_name(1,partner1)
 
-    print( 'debug:follow children', get_name(1,p1),' and ', partner_name )
+    if show_debug:
+       print( 'debug:follow children', get_name(1,p1),' and ', partner_name )
 
     children1 = trees[1][fkey][f1]['chil']
     children2 = trees[2][fkey][f2]['chil']
@@ -273,15 +280,16 @@ def follow_children( p1, partner1, f1, f2 ):
 
        else:
          show_person_header( 1, p1 )
-         print( 'All children with',partner_name,'removed in tree2' )
+         print( 'All children with',partner_name,'removed in second' )
     else:
        if children2:
           show_person_header( 1, p1 )
-          print( 'All children with',partner_name,'added in tree2' )
+          print( 'All children with',partner_name,'added in second' )
 
 
 def follow_partners( p1, p2 ):
-    print( 'debug:in follow partners', get_name(1,p1) )
+    if show_debug:
+       print( 'debug:in follow partners', get_name(1,p1) )
 
     def match_partners( p1, partners1, partners2 ):
         # make a matrix of tree1 people to tree2 people
@@ -311,7 +319,6 @@ def follow_partners( p1, p2 ):
                 if fam1 not in matched1:
                    for fam2 in partners2:
                        if fam2 not in matched2:
-                          #print( 'compare', match_values[fam1][fam2], best )
                           if match_values[fam1][fam2] >= best:
                              match_values[fam1][fam2] = -1
                              matched1[fam1] = fam2
@@ -324,12 +331,12 @@ def follow_partners( p1, p2 ):
                fam2 = matched1[fam1]
                follow_person( partner1, partners2[fam2] )
 
-               # now that families, do children
+               # now that families are known, do children within the family
                follow_children( p1, partner1, fam1, fam2 )
 
             else:
                show_person_header( 1, p1 )
-               print( 'Didnt match partner', get_name(1,partner1), 'tree1 to tree2' )
+               print( 'Didnt match partner', get_name(1,partner1), 'first to second' )
 
 
     # check all the partners that person 1 might share with person 2
@@ -342,11 +349,11 @@ def follow_partners( p1, p2 ):
 
        else:
           show_person_header( 1, p1 )
-          print( 'Partner(s) removed in tree2' )
+          print( 'Partner(s) removed in second' )
     else:
        if partners2:
           show_person_header( 1, p1 )
-          print( 'Partner(s) added in tree2' )
+          print( 'Partner(s) added in second' )
 
 
 
@@ -356,7 +363,10 @@ def follow_person( p1, p2 ):
        return
     visited.append( p1 )
 
-    print( 'debug:following person', show_indi( 1, p1 ) )
+    if show_debug:
+       print( 'debug:following person', show_indi( 1, p1 ) )
+
+    compare_a_person( p1, p2 )
 
     follow_parents( p1, p2 )
     follow_partners( p1, p2 )
@@ -369,36 +379,35 @@ fkey = readgedcom.PARSED_FAM
 # the tree data will be globals
 trees = []
 starts = []
+file_names = []
 
 # add an initial zero'th element so that the rest of the program uses 1 and 2
 trees.append(0)
 starts.append(0)
+file_names.append(0)
 
-trees.append( readgedcom.read_file( sys.argv[1] ) )
-starts.append( input_to_id( sys.argv[2] ) )
-
-trees.append( readgedcom.read_file( sys.argv[3] ) )
-starts.append( input_to_id( sys.argv[4] ) )
+# params 1,2 then 3,4
+for i in [1,3]:
+    file_names.append( sys.argv[i] )
+    trees.append( readgedcom.read_file( sys.argv[i] ) )
+    starts.append( input_to_id( sys.argv[i+1] ) )
 
 ok = True
-for p in [1,2]:
-    if starts[p] not in trees[p][ikey]:
-       print( 'Given key', starts[p], 'not in tree', p, sys.argv[2], file=sys.stderr )
+print( 'Starting points' )
+for i in [1,2]:
+    if starts[i] in trees[i][ikey]:
+       print( i, '=', show_indi( i, starts[i] ) )
+    else:
+       print( 'Given key', starts[i], 'not in tree', i, file_names[i], file=sys.stderr )
        ok = False
 
 if not ok:
    sys.exit(1)
-
-print( 'Starting with', show_indi( 1, starts[1] ) )
-print( 'and          ', show_indi( 2, starts[2] ) )
 
 # match the trees
 
 # prevent double visitations of the same person
 visited = []
 visited_fam = []
-
-# first, look at the start person
-compare_a_person( starts[1], starts[2] )
 
 follow_person( starts[1], starts[2] )
