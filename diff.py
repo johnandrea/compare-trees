@@ -9,7 +9,7 @@ in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.0.5
+v0.0.6
 """
 
 import sys
@@ -21,11 +21,53 @@ show_debug = False
 
 # how much change for a structure/branch difference
 branch_name_threshold = 0.88
-branch_date_threshold = 750
+branch_date_threshold = 750 #days
 
 # how much change to report a person details difference
 report_name_threshold = 0.92
 report_date_threshold = 400  #days
+
+
+def check_config( start_ok ):
+    ok = start_ok
+
+    def check_val( start_ok, wanted_type, x_name, x ):
+        ok = start_ok
+        if isinstance( x, wanted_type ):
+           if x < 0:
+              print( x_name, 'cannot be less than zero', file=sys.stderr )
+              ok = False
+        else:
+           print( x_name, 'must be a', wanted_type, file=sys.stderr )
+           ok = False
+        return ok
+
+    ok = check_val( ok, float, 'branch_name_threshold', branch_name_threshold )
+    ok = check_val( ok, float, 'report_name_threshold', report_name_threshold )
+    ok = check_val( ok, int,   'branch_date_threshold', branch_date_threshold )
+    ok = check_val( ok, int,   'report_date_threshold', report_date_threshold )
+
+    return ok
+
+def days_between( d1, d2 ):
+    # expecting two dates as strings yyyymmdd
+    # return the approximate number of days between
+    # this is only for approximate comparisons, not date manipulations
+    # Assuming dates are C.E. Gregorian
+
+    def extract_parts( date ):
+        # yyyymmdd
+        # 01234567
+        return [ date[0:4], date[4:6], date[6:8] ]
+
+    def total_days( date ):
+        # [0]=year [1]=month [2]=day
+        return int(date[0]) * 365 + int(date[1]) * 30 + int(date[2])
+
+    parts = []
+    for date in [d1, d2]:
+        parts.append(extract_parts( date ))
+    return abs( total_days(parts[0]) - total_days(parts[1]) )
 
 
 def input_to_id( s ):
@@ -400,6 +442,8 @@ for i in [1,2]:
     else:
        print( 'Given key', starts[i], 'not in tree', i, file_names[i], file=sys.stderr )
        ok = False
+
+ok = check_config( ok )
 
 if not ok:
    sys.exit(1)
