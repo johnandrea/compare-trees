@@ -28,6 +28,12 @@ My thoughts are to have a graphical display of only differences, with branches (
 
 A discussion is open for this project.
 
+## Installation ##
+
+- Requires python 3.6+
+- Copy diff.py
+- also requires gedcom library [readgedcom.py](https://github.com/johnandrea/readgedcom)
+
 ## Running ##
 
 Run the program with:
