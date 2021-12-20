@@ -38,8 +38,11 @@ A discussion is open for this project.
 
 Run the program with:
 ```
-diff.py  family1.ged  xref1  family2.ged  xref2 >report.out
+diff.py  family1.ged  xref1  family2.ged  xref2 >1-2.out
+diff.py  family2.ged  xref2  family1.ged  xref1 >2-1.out
 ```
 
 where the xref is the id in each gedcom file for a person who exists in both.
 So far the program only outputs a simple text report.
+
+Also note the second run in the reverse ordering because the program is designed to only compare the first tree against the second tree.
