@@ -9,7 +9,7 @@ in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.0.6
+v0.0.7
 """
 
 import sys
@@ -48,6 +48,7 @@ def check_config( start_ok ):
     ok = check_val( ok, int,   'report_date_threshold', report_date_threshold )
 
     return ok
+
 
 def days_between( d1, d2 ):
     # expecting two dates as strings yyyymmdd
@@ -96,14 +97,14 @@ def get_best_date( t, p, date_name ):
     return best
 
 
-def get_a_year( t, p, date_name ):
-    # return the year (int) of the dated event, or None
+def get_full_date( t, p, date_name ):
+    # return the yyyymmdd value for the person's dated event, or None
     result = None
     best = get_best_date( t, p, date_name )
     if best is not None:
        if trees[t][ikey][p][date_name][best]['date']['is_known']:
           # get the minimum date if its a range. if not a range min and max are equal
-          result = trees[t][ikey][p][date_name][best]['date']['min']['year']
+          result = trees[t][ikey][p][date_name][best]['date']['min']['value']
     return result
 
 
@@ -131,6 +132,7 @@ def show_indi( t, p ):
 
 
 def get_other_partner( t, p, f ):
+    # in any given family, return the partner of the given person
     result = None
     for partner in ['wife','husb']:
         if partner in trees[t][fkey][f]:
@@ -141,8 +143,9 @@ def get_other_partner( t, p, f ):
 
 
 def list_all_partners( t, p ):
-    # return   [familyid] = partnerid
-    # though partnerid might be unknown = None
+    # for the given person in all the families in which they are a partner
+    # return   [family-id] = the-other-partner-id
+    # though partnerid might be unknown i.e. None
     result = dict()
     if 'fams' in trees[t][ikey][p]:
        for fam in trees[t][ikey][p]['fams']:
@@ -164,7 +167,7 @@ def compare_a_person( p1, p2 ):
     def compare_person_dates( p1, title, date1, date2 ):
         if date1:
            if date2:
-              if abs( date1 - date2 ) >= report_date_threshold:
+              if days_between( date1, date2 ) >= report_date_threshold:
                  show_person_header(1,p1)
                  print( title, 'difference', date1, ' vs ', date2 )
            else:
@@ -177,6 +180,7 @@ def compare_a_person( p1, p2 ):
 
     name1 = get_name( 1, p1 )
     name2 = get_name( 2, p2 )
+
     if get_name_match_value(name1,name2) < report_name_threshold:
        show_person_header(1,p1)
        print( 'Name difference:', name1, ' vs ', name2 )
@@ -187,8 +191,8 @@ def compare_a_person( p1, p2 ):
         d2 = get_a_date( 2, p2, d )
         if d1 != d2:
            # then look closer at the parsed values
-           d1 = get_a_year( 1, p1, d )
-           d2 = get_a_year( 2, p2, d )
+           d1 = get_full_date( 1, p1, d )
+           d2 = get_full_date( 2, p2, d )
            compare_person_dates(p1, d, d1, d2 )
 
 
@@ -203,8 +207,7 @@ def person_match_value( t1, p1, t2, p2 ):
 
 
 def is_same_person( t1, p1, t2, p2 ):
-    # for now, the match valus is a magic number
-    return person_match_value( t1, p1, t2, p2 ) >= 0.8
+    return person_match_value( t1, p1, t2, p2 ) >= branch_name_threshold
 
 
 def follow_parents( p1, p2 ):
@@ -288,7 +291,7 @@ def follow_children( p1, partner1, f1, f2 ):
 
         best = max_in_matrix( match_values )
 
-        while best >= 0.88: #magic value for now
+        while best >= branch_name_threshold:
             # where did it occur
             # there might be a pythonic way to do this
             for c1 in children1:
@@ -354,7 +357,7 @@ def follow_partners( p1, p2 ):
 
         best = max_in_matrix( match_values )
 
-        while best >= 0.88: #magic value for now
+        while best >= branch_name_threshold:
             # where did it occur
             # there might be a pythonic way to do this
             for fam1 in partners1:
