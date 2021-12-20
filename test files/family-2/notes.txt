@@ -1,1 +1,29 @@
 Another set of tests with a few more changes than family-1
+
+The report should show
+
+A) tree1 vs tree2
+
+Mom and Dad
+child Sibling not in second
+
+Son-in-law with Child-A
+child Grand-A-1 not in second
+
+Spouse-2
+Parents missing in second
+
+Child-B
+spouse added in second
+
+
+B) tree2 vs tree1
+
+Origin with Spouse-2
+child Child-C added in second
+
+Son-in-law with Child-A
+child NameChange added in second
+
+Child-B
+spouse B-spouse added in second
