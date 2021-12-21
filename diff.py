@@ -9,10 +9,11 @@ in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.0.7
+v0.0.9
 """
 
 import sys
+import os
 import re
 import difflib
 import readgedcom
@@ -417,6 +418,16 @@ def follow_person( p1, p2 ):
     follow_partners( p1, p2 )
 
 
+def show_usage():
+    print( '' )
+    print( 'Arguments: tree1file  person1xref   tree2file  person2xref' )
+    print( 'Output report to stdout' )
+
+
+
+if len(sys.argv) != 5:
+   show_usage()
+   sys.exit(1)
 
 ikey = readgedcom.PARSED_INDI
 fkey = readgedcom.PARSED_FAM
@@ -434,16 +445,34 @@ file_names.append(0)
 # params 1,2 then 3,4
 for i in [1,3]:
     file_names.append( sys.argv[i] )
-    trees.append( readgedcom.read_file( sys.argv[i] ) )
     starts.append( input_to_id( sys.argv[i+1] ) )
 
 ok = True
+for i in [1,2]:
+    if os.path.isfile( file_names[i] ):
+       trees.append( readgedcom.read_file( file_names[i] ) )
+
+    else:
+       print( 'Data file does not exist:', file_names[i], file=sys.stderr )
+       ok = False
+
+if file_names[1] == file_names[2]:
+   print( 'Identical files', file=sys.stderr )
+   ok = False
+
+if not ok:
+   sys.exit(1)
+
 print( 'Starting points' )
 for i in [1,2]:
-    if starts[i] in trees[i][ikey]:
-       print( i, '=', show_indi( i, starts[i] ) )
+    if isinstance( trees[i], dict ) and ikey in trees[i]:
+       if starts[i] in trees[i][ikey]:
+          print( i, '=', show_indi( i, starts[i] ) )
+       else:
+          print( 'Given key', starts[i], 'not in tree', i, file_names[i], file=sys.stderr )
+          ok = False
     else:
-       print( 'Given key', starts[i], 'not in tree', i, file_names[i], file=sys.stderr )
+       print( 'Tree', i, 'not fully parsed data', file=sys.stderr )
        ok = False
 
 ok = check_config( ok )
