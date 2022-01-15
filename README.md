@@ -18,6 +18,7 @@ Some existing tools mentioned there:
 
 Other interesting visualizations
 - Exploring Family Trees: https://learnforeverlearn.com/ancestors/
+- d3 family tree: https://github.com/trongthanh/family-tree
 
 My thoughts are to have a graphical display of only differences, with branches (and individuals) highlighted for tree1 to tree2 and another display with changed branches from tree2 to tree1.
 - User input to indicate a person who is the key to both trees (GEDCOM XREF id?)
