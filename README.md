@@ -14,7 +14,7 @@ Some existing tools mentioned there:
 - yEd: https://www.yworks.com/products/yed
 - Gephi: https://gephi.org
 - Cytoscape: https://cytoscape.org
-- D3: https://observablehq.com/@d3 and https://observablehq.com/@d3/collapsible-tree
+- D3: https://observablehq.com/@d3 and https://observablehq.com/@d3/collapsible-tree and https://gist.github.com/d3noob/9de0768412ac2ce5dbec430bb1370efe
 
 Other interesting visualizations
 - Exploring Family Trees: https://learnforeverlearn.com/ancestors/
