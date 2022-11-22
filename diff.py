@@ -9,14 +9,16 @@ in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.0.9
+v0.1.0
 """
 
 import sys
 import os
 import re
 import difflib
-import readgedcom
+import argparse
+import importlib.util
+
 
 show_debug = False
 
@@ -27,6 +29,79 @@ branch_date_threshold = 750 #days
 # how much change to report a person details difference
 report_name_threshold = 0.92
 report_date_threshold = 400  #days
+
+
+def load_my_module( module_name, relative_path ):
+    """
+    Load a module in my own single .py file. Requires Python 3.6+
+    Give the name of the module, not the file name.
+    Give the path to the module relative to the calling program.
+    Requires:
+        import importlib.util
+        import os
+    Use like this:
+        readgedcom = load_my_module( 'readgedcom', '../libs' )
+        data = readgedcom.read_file( input-file )
+    """
+    assert isinstance( module_name, str ), 'Non-string passed as module name'
+    assert isinstance( relative_path, str ), 'Non-string passed as relative path'
+
+    file_path = os.path.dirname( os.path.realpath( __file__ ) )
+    file_path += os.path.sep + relative_path
+    file_path += os.path.sep + module_name + '.py'
+
+    assert os.path.isfile( file_path ), 'Module file not found at ' + str(file_path)
+
+    module_spec = importlib.util.spec_from_file_location( module_name, file_path )
+    my_module = importlib.util.module_from_spec( module_spec )
+    module_spec.loader.exec_module( my_module )
+
+    return my_module
+
+
+def get_program_options():
+    results = dict()
+
+    results['libpath'] = '.'
+    results['format'] = 'text'
+    results['iditem'] = 'xref'
+
+    results['file1'] = None
+    results['id1'] = None
+    results['file2'] = None
+    results['id2'] = None
+
+    arg_help = 'Display gedcom differences.'
+    parser = argparse.ArgumentParser( description=arg_help )
+
+    # maybe this should be changed to have a type which better matched a directory
+    arg_help = 'Location of the gedcom library. Default is current directory.'
+    parser.add_argument( '--libpath', default=results['libpath'], type=str, help=arg_help )
+
+    formats = [results['format']]
+    arg_help = 'Output format. One of: ' + str(formats) + ', Default: ' + results['format']
+    parser.add_argument( '--format', default=results['format'], choices=formats, type=str, help=arg_help )
+
+    arg_help = 'How to find the person. Default is the gedcom id "xref".'
+    arg_help += ' Othewise choose "exid", "refnum", etc.'
+    parser.add_argument( '--iditem', default=results['iditem'], type=str, help=arg_help )
+
+    parser.add_argument('file1', type=argparse.FileType('r') )
+    parser.add_argument('id1', type=str )
+    parser.add_argument('file2', type=argparse.FileType('r') )
+    parser.add_argument('id2', type=str )
+
+    args = parser.parse_args()
+
+    results['libpath'] = args.libpath
+    results['format'] = args.format.lower()
+    results['iditem'] = args.iditem.lower()
+    results['file1'] = args.file1.name
+    results['id1'] = args.id1
+    results['file2'] = args.file2.name
+    results['id2'] = args.id2
+
+    return results
 
 
 def check_config( start_ok ):
@@ -70,15 +145,6 @@ def days_between( d1, d2 ):
     for date in [d1, d2]:
         parts.append(extract_parts( date ))
     return abs( total_days(parts[0]) - total_days(parts[1]) )
-
-
-def input_to_id( s ):
-    # might have been given as just a number
-    # convert to id style 'i58'
-    result = ''
-    if s:
-       result = s.replace('@','').replace('i','').replace('I','')
-    return 'i' + result
 
 
 def get_name( t, p ):
@@ -418,20 +484,6 @@ def follow_person( p1, p2 ):
     follow_partners( p1, p2 )
 
 
-def show_usage():
-    print( '' )
-    print( 'Arguments: tree1file  person1xref   tree2file  person2xref' )
-    print( 'Output report to stdout' )
-
-
-
-if len(sys.argv) != 5:
-   show_usage()
-   sys.exit(1)
-
-ikey = readgedcom.PARSED_INDI
-fkey = readgedcom.PARSED_FAM
-
 # the tree data will be globals
 trees = []
 starts = []
@@ -442,37 +494,51 @@ trees.append(0)
 starts.append(0)
 file_names.append(0)
 
-# params 1,2 then 3,4
-for i in [1,3]:
-    file_names.append( sys.argv[i] )
-    starts.append( input_to_id( sys.argv[i+1] ) )
+options = get_program_options()
+
+if not os.path.isdir( options['libpath'] ):
+   print( 'Path to readgedcom is not a directory', file=sys.stderr )
+   sys.exit( 1 )
+
+readgedcom = load_my_module( 'readgedcom', options['libpath'] )
+
+ikey = readgedcom.PARSED_INDI
+fkey = readgedcom.PARSED_FAM
+
+file_names.append( options['file1'] )
+starts.append( options['id1'] )
+file_names.append( options['file2'] )
+starts.append( options['id2'] )
 
 ok = True
-for i in [1,2]:
-    if os.path.isfile( file_names[i] ):
-       trees.append( readgedcom.read_file( file_names[i] ) )
 
-    else:
-       print( 'Data file does not exist:', file_names[i], file=sys.stderr )
-       ok = False
-
-if file_names[1] == file_names[2]:
+# not good for o/s with significant case files
+if file_names[1].lower() == file_names[2].lower():
    print( 'Identical files', file=sys.stderr )
-   ok = False
-
-if not ok:
    sys.exit(1)
+
+# this will cause exit if the input data is very bad
+for i in [1,2]:
+    trees.append( readgedcom.read_file( file_names[i] ) )
 
 print( 'Starting points' )
 for i in [1,2]:
     if isinstance( trees[i], dict ) and ikey in trees[i]:
-       if starts[i] in trees[i][ikey]:
+       selected = readgedcom.find_individuals( trees[i], options['iditem'], starts[i] )
+       n = len(selected)
+       if n == 1:
+          starts[i] = selected[0]
           print( i, '=', show_indi( i, starts[i] ) )
        else:
-          print( 'Given key', starts[i], 'not in tree', i, file_names[i], file=sys.stderr )
           ok = False
+          mess = 'Given person id ' + str(starts[i]) + ' '
+          if n < 1:
+             mess += 'not in tree:'
+          else:
+             mess += 'matched more than 1 person:'
+          print( mess, file_names[i], file=sys.stderr )
     else:
-       print( 'Tree', i, 'not fully parsed data', file=sys.stderr )
+       print( 'Tree', i, 'not fully parsed data:', file_names[i], file=sys.stderr )
        ok = False
 
 ok = check_config( ok )
