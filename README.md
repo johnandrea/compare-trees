@@ -21,11 +21,11 @@ Other interesting visualizations
 - d3 family tree: https://github.com/trongthanh/family-tree
 
 My thoughts are to have a graphical display of only differences, with branches (and individuals) highlighted for tree1 to tree2 and another display with changed branches from tree2 to tree1.
-- User input to indicate a person who is the key to both trees (GEDCOM XREF id?)
+- User input to indicate a person who is the key to both trees (GEDCOM XREF id?, REFN, EXID, etc.)
 - User options on the amount of variation in names and dates which constiutes a difference
 - All non-changed branches pruned away
 - Use an existing graphical interface for the display (such as yEd, D3.js, etc.), capable of large trees
-- Collapsable branches are required in the display
+- Collapsable branches are required in the display. IE. don't want to invent an interface.
 
 A discussion is open for this project.
 
