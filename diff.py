@@ -9,17 +9,16 @@ Options: (see the documentation)
 --libpath (default '.')
 --format (currently only text output)
 --iditem  (default 'xref')
---minor-name-diff
---minor-date-diff
---major-name-diff
---major-date-diff
+--person-name-diff
+--person-date-diff
+--person-place-diff
 
 A person (child,partner,parent) which gets added in tree2 is not deteched,
 in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.1.2
+v0.2.0
 """
 
 import sys
@@ -31,6 +30,10 @@ import importlib.util
 
 
 show_debug = False
+
+# for is-same-person testing
+life_events = ['birt', 'deat']
+# maybe add baptism. christening
 
 
 def load_my_module( module_name, relative_path ):
@@ -68,13 +71,15 @@ def get_program_options():
     results['format'] = 'text'
     results['iditem'] = 'xref'
 
-    # relatively small differences in a person
-    results['minor-name-diff'] = 0.92 # via difflib.SequenceMatcher.ratio
-    results['minor-date-diff'] = 400 # days
+    # limits on "same person" match
+    results['person-name-diff'] = 0.92 # via difflib.SequenceMatcher.ratio
+    results['person-date-diff'] = 400 # days
+    results['person-place-diff'] = 0.90 # same as name, for life events
 
-    # big differences, not the same person. See above for units
-    results['major-name-diff'] = 0.88
-    results['major-date-diff'] = 720
+    # not yet used
+    ## limits on "same event" match for general events (incl. marriage)
+    #results['event-place-diff'] = 0.90
+    #results['event-date-diff'] = 500
 
     results['file1'] = None
     results['id1'] = None
@@ -97,19 +102,17 @@ def get_program_options():
     arg_help += ' Othewise choose "exid", "refnum", etc.'
     parser.add_argument( '--iditem', default=results['iditem'], type=str, help=arg_help )
 
-    arg_help = 'Relatively small change in name. Via difflib.SequenceMatcher.ratio'
-    arg_help += ' (0=very different, 1=same). Default ' + str(results['minor-name-diff'])
-    parser.add_argument( '--minor-name-diff', default=results['minor-name-diff'], type=float, help=arg_help )
+    arg_help = 'Less than this name diff is a different person. Via difflib.SequenceMatcher.ratio'
+    arg_help += ' (0=very different, 1=exact same). Default ' + str(results['person-name-diff'])
+    parser.add_argument( '--person-name-diff', default=results['person-name-diff'], type=float, help=arg_help )
 
-    arg_help = 'Relatively small change in dates, given as days. Default ' + str(results['minor-date-diff'])
-    parser.add_argument( '--minor-date-diff', default=results['minor-date-diff'], type=int, help=arg_help )
+    arg_help = 'More than this many days in a life event is a different person.'
+    arg_help += ' Default ' + str(results['person-date-diff'])
+    parser.add_argument( '--person-date-diff', default=results['person-date-diff'], type=int, help=arg_help )
 
-    arg_help = 'Big engough change to be a different person. Same units as minor-name-diff.'
-    arg_help += ' Default ' + str(results['major-name-diff'])
-    parser.add_argument( '--major-name-diff', default=results['major-name-diff'], type=float, help=arg_help )
-
-    arg_help = 'Big enough change to be a different person, given as days. Default ' + str(results['major-date-diff'])
-    parser.add_argument( '--major-date-diff', default=results['major-date-diff'], type=int, help=arg_help )
+    arg_help = 'Less that this name diff for a life event place is a different person.'
+    arg_help += ' Same units as name. Default ' + str(results['person-place-diff'])
+    parser.add_argument( '--person-place-diff', default=results['person-place-diff'], type=int, help=arg_help )
 
     parser.add_argument('file1', type=argparse.FileType('r') )
     parser.add_argument('id1', type=str )
@@ -125,10 +128,10 @@ def get_program_options():
     results['id1'] = args.id1
     results['file2'] = args.file2.name
     results['id2'] = args.id2
-    results['minor-name-diff'] = args.minor_name_diff
-    results['minor-date-diff'] = args.minor_date_diff
-    results['major-name-diff'] = args.major_name_diff
-    results['major-date-diff'] = args.major_date_diff
+
+    results['person-name-diff'] = args.person_name_diff
+    results['person-date-diff'] = args.person_date_diff
+    results['person-place-diff'] = args.person_place_diff
 
     return results
 
@@ -150,10 +153,10 @@ def check_config( start_ok ):
            ok = False
         return ok
 
-    ok = check_val( ok, float, 1.0, 'branch_name_threshold', branch_name_threshold )
-    ok = check_val( ok, float, 1.0, 'report_name_threshold', report_name_threshold )
-    ok = check_val( ok, int,  None, 'branch_date_threshold', branch_date_threshold )
-    ok = check_val( ok, int,  None, 'report_date_threshold', report_date_threshold )
+    for item in ['person-name-diff','person-place-diff']:
+        ok = check_val( ok, float, 1.0, item, options[item] )
+    for item in ['person-date-diff']:
+        ok = check_val( ok, int,  None, item, options[item] )
 
     return ok
 
@@ -173,10 +176,10 @@ def days_between( d1, d2 ):
         # [0]=year [1]=month [2]=day
         return int(date[0]) * 365 + int(date[1]) * 30 + int(date[2])
 
-    parts = []
-    for date in [d1, d2]:
-        parts.append(extract_parts( date ))
-    return abs( total_days(parts[0]) - total_days(parts[1]) )
+    days1 = total_days( extract_parts( d1 ) )
+    days2 = total_days( extract_parts( d2 ) )
+
+    return abs( days1 - days2 )
 
 
 def get_name( t, p ):
@@ -189,33 +192,42 @@ def get_name( t, p ):
     return result
 
 
-def get_best_date( t, p, date_name ):
+def get_best_event_id( t, p, event_name ):
     best = None
-    if date_name in trees[t][ikey][p]['best-events']:
-       best = trees[t][ikey][p]['best-events'][date_name]
+    if event_name in trees[t][ikey][p]['best-events']:
+       best = trees[t][ikey][p]['best-events'][event_name]
     return best
 
 
-def get_full_date( t, p, date_name ):
-    # return the yyyymmdd value for the person's dated event, or None
+def get_event_place( t, p, event_name ):
     result = None
-    best = get_best_date( t, p, date_name )
+    best = get_best_event_id( t, p, event_name )
     if best is not None:
-       if trees[t][ikey][p][date_name][best]['date']['is_known']:
-          # get the minimum date if its a range. if not a range min and max are equal
-          result = trees[t][ikey][p][date_name][best]['date']['min']['value']
+       if 'plac' in trees[t][ikey][p][event_name][best]:
+          result = trees[t][ikey][p][event_name][best]['plac']
     return result
 
 
-def get_a_date( t, p, date_name ):
+def get_full_date( t, p, event_name ):
+    # return the yyyymmdd value for the person's dated event, or None
+    result = None
+    best = get_best_event_id( t, p, event_name )
+    if best is not None:
+       if trees[t][ikey][p][event_name][best]['date']['is_known']:
+          # get the minimum date if its a range. if not a range min and max are equal
+          result = trees[t][ikey][p][event_name][best]['date']['min']['value']
+    return result
+
+
+def get_a_date( t, p, event_name ):
     # return the date as given in the input file (or an empty string),
     # which might contain before/after/etc or be a range
     # not appropriate for comparison
     result = ''
-    best = get_best_date( t, p, date_name )
+    best = get_best_event_id( t, p, event_name )
     if best is not None:
-       if trees[t][ikey][p][date_name][best]['date']['is_known']:
-          result = trees[t][ikey][p][date_name][best]['date']['in']
+       if trees[t][ikey][p][event_name][best]['date']['is_known']:
+          result = trees[t][ikey][p][event_name][best]['date']['in']
     return result
 
 
@@ -261,52 +273,49 @@ def get_name_match_value( n1, n2 ):
     return difflib.SequenceMatcher(None, n1, n2).ratio()
 
 
-def compare_a_person( p1, p2 ):
-
-    def compare_person_dates( p1, title, date1, date2 ):
-        if date1:
-           if date2:
-              if days_between( date1, date2 ) >= report_date_threshold:
-                 show_person_header(1,p1)
-                 print( title, 'difference', date1, ' vs ', date2 )
-           else:
-              show_person_header(1,p1)
-              print( title, 'not in second tree' )
-        else:
-           if date2:
-              show_person_header(1,p1)
-              print( title, 'not in first tree' )
-
-    name1 = get_name( 1, p1 )
-    name2 = get_name( 2, p2 )
-
-    if get_name_match_value(name1,name2) < report_name_threshold:
-       show_person_header(1,p1)
-       print( 'Name difference:', name1, ' vs ', name2 )
-
-    for d in ['birt','deat']:
-        # first check whats given in the input file
-        d1 = get_a_date( 1, p1, d )
-        d2 = get_a_date( 2, p2, d )
-        if d1 != d2:
-           # then look closer at the parsed values
-           d1 = get_full_date( 1, p1, d )
-           d2 = get_full_date( 2, p2, d )
-           compare_person_dates(p1, d, d1, d2 )
+def get_life_event_place_match( p1, p2 ):
+    # return the smallest match
+    result = 1.0
+    for e in life_events:
+         v1 = get_event_place( 1, p1, e )
+         if v1:
+            v2 = get_event_place( 2, p2, e )
+            if v2:
+               result = min( result, get_name_match_value( v1, v2 ) )
+    return result
 
 
-def person_match_value( t1, p1, t2, p2 ):
-    # should also check dates
-    name1 = get_name( t1, p1 )
-    name2 = get_name( t2, p2 )
-    value = get_name_match_value( name1, name2 )
-    if show_debug:
-       print( 'debug:sameness ', value, name1, ' vs ', name2 )
-    return value
+def get_life_event_date_match( p1, p2 ):
+     # return the largest difference
+     result = 0
+     for e in life_events:
+         v1 = get_full_date( 1, p1, e )
+         if v1:
+            v2 = get_full_date( 2, p2, e )
+            if v2:
+               result = max( result, days_between( v1, v2 ) )
+     return result
 
 
-def is_same_person( t1, p1, t2, p2 ):
-    return person_match_value( t1, p1, t2, p2 ) >= branch_name_threshold
+def get_name_match( p1, p2 ):
+    v1 = get_name( 1, p1 )
+    v2 = get_name( 2, p2 )
+    return get_name_match_value( v1, v2 )
+
+
+def is_same_person( p1, p2 ):
+    if get_name_match( p1, p2 ) < options['person-name-diff']:
+       return False
+    if get_life_event_date_match( p1, p2 ) > options['person-date-diff']:
+       return False
+    if get_life_event_place_match( p1, p2 ) < options['person-place-diff']:
+       return False
+    return True
+
+
+def person_match_value( p1, p2 ):
+    # for now, only check the name
+    return get_name_match( p1, p2 )
 
 
 def follow_parents( p1, p2 ):
@@ -337,7 +346,7 @@ def follow_parents( p1, p2 ):
 
               if partner1:
                  if partner2:
-                    if is_same_person( 1, partner1, 2, partner2 ):
+                    if is_same_person( partner1, partner2 ):
                        # now what, check details
                        if show_debug:
                           print( 'debug:matched parent', partner, get_name(1,partner1) )
@@ -383,14 +392,14 @@ def follow_children( p1, partner1, f1, f2 ):
         for c1 in children1:
             match_values[c1] = dict()
             for c2 in children2:
-                match_values[c1][c2] = person_match_value( 1, c1, 2, c2 )
+                match_values[c1][c2] = person_match_value( c1, c2 )
 
         matched1 = dict()
         matched2 = dict()
 
         best = max_in_matrix( match_values )
 
-        while best >= branch_name_threshold:
+        while best >= options['person-name-diff']:
             # where did it occur
             # there might be a pythonic way to do this
             for c1 in children1:
@@ -446,7 +455,7 @@ def follow_partners( p1, p2 ):
             match_values[fam1] = dict()
             for fam2 in partners2:
                 partner2 = partners2[fam2]
-                match_values[fam1][fam2] = person_match_value( 1, partner1, 2, partner2 )
+                match_values[fam1][fam2] = person_match_value( partner1, partner2 )
 
         # find the best match for each,
         # so long as it isn't a better match for someone else
@@ -456,7 +465,7 @@ def follow_partners( p1, p2 ):
 
         best = max_in_matrix( match_values )
 
-        while best >= branch_name_threshold:
+        while best >= options['person-name-diff']:
             # where did it occur
             # there might be a pythonic way to do this
             for fam1 in partners1:
@@ -510,7 +519,8 @@ def follow_person( p1, p2 ):
     if show_debug:
        print( 'debug:following person', show_indi( 1, p1 ) )
 
-    compare_a_person( p1, p2 )
+    # might pass same person test, but could have not-significant differences
+    #report_non_exact_items( p1, p2 )
 
     follow_parents( p1, p2 )
     follow_partners( p1, p2 )
@@ -527,14 +537,6 @@ starts.append(0)
 file_names.append(0)
 
 options = get_program_options()
-
-# how much change for a structure/branch difference
-branch_name_threshold = options['major-name-diff']
-branch_date_threshold = options['major-date-diff']
-
-# how much change to report a person details difference
-report_name_threshold = options['minor-name-diff']
-report_date_threshold = options['minor-date-diff']
 
 if not os.path.isdir( options['libpath'] ):
    print( 'Path to readgedcom is not a directory', file=sys.stderr )
@@ -585,6 +587,10 @@ ok = check_config( ok )
 
 if not ok:
    sys.exit(1)
+
+if not is_same_person( starts[1], starts[2] ):
+   # don't exit
+   print( 'WARNING: start persons fail test for same person', file=sys.stderr )
 
 # match the trees
 
