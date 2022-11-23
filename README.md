@@ -35,7 +35,7 @@ A discussion is open for this project.
 - Copy diff.py
 - also requires gedcom library [readgedcom.py](https://github.com/johnandrea/readgedcom)
 
-## Running ##
+## Usage ##
 
 Run the program with:
 ```
@@ -47,3 +47,61 @@ where the xref is the id in each gedcom file for a person who exists in both.
 So far the program only outputs a simple text report.
 
 Also note the second run in the reverse ordering because the program is designed to only compare the first tree against the second tree.
+
+## Options ##
+
+--iditem=value
+
+Specify the item to identify the tester via each tester id. Default is "xref" which is the individual
+XREF value in the GEDCOM file.
+Other options might be "uuid", "refn", etc. If using a GEDCOM custom event specify it as "even dot" followed by
+the event name, i.e. "even.extid", "even.myreference", etc.
+
+Names, dates, etc. shouldn't be used because they might not be unique and have complex structures.
+
+--person-name-diff=value
+
+For determining if two people match, by comparing the name. 
+Using difflib.SequenceMatcher.ratio, giving 0=very different, 1=exactly same.
+Test fails if the match is less than this value. Default 0.92
+
+--person-date-diff=value
+
+Also for determining if two people match, by comparing life event (birth,death) dates.
+Test fails if two dates differ by more than this number of daya. Default is 400
+
+--person-place-diff=value
+
+Also for determining if two people match, by comparing life event places.
+Similar to the name comparison. Default is 0.90
+
+--libpath=relative-path-to-library
+
+The directory containing the readgedcom library, relative to the . Default is ".", the same location as this program file.
+
+## Running ##
+
+If the gedcom library is in a parallel directory
+```
+diff.py --libpath=../downloads  file1  xref1  file2  xref2
+```
+
+To change the start person selection by refn id
+```
+diff.py --iditem=refn  file1  refn1  file2  refn2
+```
+
+To change the person matching tolerances to be much tighter
+```
+diff.py --person-name-diff=0.96 --person-date-diff=90  file1 xref1 file2 xref2
+```
+
+To change the person matching tolernaces to be much looser
+```
+diff.py --person-name-diff=0.6 --person-data-diff=800  file1 xref1 file2 xref2
+```
+
+To ignore place name differences in person matching
+```
+diff.py --person-place-diff=1.0  file1 xref1 file2 xref2
+```
