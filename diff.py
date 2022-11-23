@@ -2,14 +2,24 @@
 
 """
 Compare two gedcom trees.
-Arguments: tree1file  person1xref   tree2file  person2xref
+Arguments: tree1file  person1id   tree2file  person2id
 
-A person (child,partnermparent) which gets added in tree2 is not deteched,
+Options: (see the documentation)
+
+--libpath (default '.')
+--format (currently only text output)
+--iditem  (default 'xref')
+--minor-name-diff
+--minor-date-diff
+--major-name-diff
+--major-date-diff
+
+A person (child,partner,parent) which gets added in tree2 is not deteched,
 in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.1.0
+v0.1.2
 """
 
 import sys
@@ -20,7 +30,7 @@ import argparse
 import importlib.util
 
 
-show_debug = True
+show_debug = False
 
 
 def load_my_module( module_name, relative_path ):
