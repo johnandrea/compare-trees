@@ -18,7 +18,7 @@ in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.2.0
+v0.2.1
 """
 
 import sys
