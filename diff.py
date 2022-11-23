@@ -20,15 +20,7 @@ import argparse
 import importlib.util
 
 
-show_debug = False
-
-# how much change for a structure/branch difference
-branch_name_threshold = 0.88
-branch_date_threshold = 750 #days
-
-# how much change to report a person details difference
-report_name_threshold = 0.92
-report_date_threshold = 400  #days
+show_debug = True
 
 
 def load_my_module( module_name, relative_path ):
@@ -66,6 +58,14 @@ def get_program_options():
     results['format'] = 'text'
     results['iditem'] = 'xref'
 
+    # relatively small differences in a person
+    results['minor-name-diff'] = 0.92 # via difflib.SequenceMatcher.ratio
+    results['minor-date-diff'] = 400 # days
+
+    # big differences, not the same person. See above for units
+    results['major-name-diff'] = 0.88
+    results['major-date-diff'] = 720
+
     results['file1'] = None
     results['id1'] = None
     results['file2'] = None
@@ -78,13 +78,28 @@ def get_program_options():
     arg_help = 'Location of the gedcom library. Default is current directory.'
     parser.add_argument( '--libpath', default=results['libpath'], type=str, help=arg_help )
 
-    formats = [results['format']]
-    arg_help = 'Output format. One of: ' + str(formats) + ', Default: ' + results['format']
-    parser.add_argument( '--format', default=results['format'], choices=formats, type=str, help=arg_help )
+    # not yet used
+    #formats = [results['format']]
+    #arg_help = 'Output format. One of: ' + str(formats) + ', Default: ' + results['format']
+    #parser.add_argument( '--format', default=results['format'], choices=formats, type=str, help=arg_help )
 
     arg_help = 'How to find the person. Default is the gedcom id "xref".'
     arg_help += ' Othewise choose "exid", "refnum", etc.'
     parser.add_argument( '--iditem', default=results['iditem'], type=str, help=arg_help )
+
+    arg_help = 'Relatively small change in name. Via difflib.SequenceMatcher.ratio'
+    arg_help += ' (0=very different, 1=same). Default ' + str(results['minor-name-diff'])
+    parser.add_argument( '--minor-name-diff', default=results['minor-name-diff'], type=float, help=arg_help )
+
+    arg_help = 'Relatively small change in dates, given as days. Default ' + str(results['minor-date-diff'])
+    parser.add_argument( '--minor-date-diff', default=results['minor-date-diff'], type=int, help=arg_help )
+
+    arg_help = 'Big engough change to be a different person. Same units as minor-name-diff.'
+    arg_help += ' Default ' + str(results['major-name-diff'])
+    parser.add_argument( '--major-name-diff', default=results['major-name-diff'], type=float, help=arg_help )
+
+    arg_help = 'Big enough change to be a different person, given as days. Default ' + str(results['major-date-diff'])
+    parser.add_argument( '--major-date-diff', default=results['major-date-diff'], type=int, help=arg_help )
 
     parser.add_argument('file1', type=argparse.FileType('r') )
     parser.add_argument('id1', type=str )
@@ -94,12 +109,16 @@ def get_program_options():
     args = parser.parse_args()
 
     results['libpath'] = args.libpath
-    results['format'] = args.format.lower()
+    #results['format'] = args.format.lower()
     results['iditem'] = args.iditem.lower()
     results['file1'] = args.file1.name
     results['id1'] = args.id1
     results['file2'] = args.file2.name
     results['id2'] = args.id2
+    results['minor-name-diff'] = args.minor_name_diff
+    results['minor-date-diff'] = args.minor_date_diff
+    results['major-name-diff'] = args.major_name_diff
+    results['major-date-diff'] = args.major_date_diff
 
     return results
 
@@ -107,21 +126,24 @@ def get_program_options():
 def check_config( start_ok ):
     ok = start_ok
 
-    def check_val( start_ok, wanted_type, x_name, x ):
+    def check_val( start_ok, wanted_type, maximum, x_name, x ):
         ok = start_ok
         if isinstance( x, wanted_type ):
            if x < 0:
               print( x_name, 'cannot be less than zero', file=sys.stderr )
+              ok = False
+           if maximum and x > maximum:
+              print( x_name, 'cannot be greater than', maximum, file=sys.stderr )
               ok = False
         else:
            print( x_name, 'must be a', wanted_type, file=sys.stderr )
            ok = False
         return ok
 
-    ok = check_val( ok, float, 'branch_name_threshold', branch_name_threshold )
-    ok = check_val( ok, float, 'report_name_threshold', report_name_threshold )
-    ok = check_val( ok, int,   'branch_date_threshold', branch_date_threshold )
-    ok = check_val( ok, int,   'report_date_threshold', report_date_threshold )
+    ok = check_val( ok, float, 1.0, 'branch_name_threshold', branch_name_threshold )
+    ok = check_val( ok, float, 1.0, 'report_name_threshold', report_name_threshold )
+    ok = check_val( ok, int,  None, 'branch_date_threshold', branch_date_threshold )
+    ok = check_val( ok, int,  None, 'report_date_threshold', report_date_threshold )
 
     return ok
 
@@ -495,6 +517,14 @@ starts.append(0)
 file_names.append(0)
 
 options = get_program_options()
+
+# how much change for a structure/branch difference
+branch_name_threshold = options['major-name-diff']
+branch_date_threshold = options['major-date-diff']
+
+# how much change to report a person details difference
+report_name_threshold = options['minor-name-diff']
+report_date_threshold = options['minor-date-diff']
 
 if not os.path.isdir( options['libpath'] ):
    print( 'Path to readgedcom is not a directory', file=sys.stderr )
