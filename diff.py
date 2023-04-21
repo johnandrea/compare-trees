@@ -12,13 +12,15 @@ Options: (see the documentation)
 --person-name-diff
 --person-date-diff
 --person-place-diff
+--report-name-diff
+--report-date-diff
 
 A person (child,partner,parent) which gets added in tree2 is not deteched,
 in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.2.1
+v0.2.3
 """
 
 import sys
@@ -75,6 +77,8 @@ def get_program_options():
     results['person-name-diff'] = 0.92 # via difflib.SequenceMatcher.ratio
     results['person-date-diff'] = 400 # days
     results['person-place-diff'] = 0.90 # same as name, for life events
+    results['report-name-diff'] = 0.99 # tighter than the same person matching
+    results['report-date-diff'] = 14 # days
 
     # not yet used
     ## limits on "same event" match for general events (incl. marriage)
@@ -114,6 +118,14 @@ def get_program_options():
     arg_help += ' Same units as name. Default ' + str(results['person-place-diff'])
     parser.add_argument( '--person-place-diff', default=results['person-place-diff'], type=int, help=arg_help )
 
+    arg_help = 'Same person, report small differences in name and place.'
+    arg_help += ' Same units as person-name. Default ' + str(results['report-name-diff'])
+    parser.add_argument( '--report-name-diff', default=results['report-name-diff'], type=float, help=arg_help )
+
+    arg_help = 'Same person, report small differences in dates.'
+    arg_help += ' Default ' + str(results['report-date-diff'])
+    parser.add_argument( '--report-date-diff', default=results['report-date-diff'], type=int, help=arg_help )
+
     parser.add_argument('file1', type=argparse.FileType('r') )
     parser.add_argument('id1', type=str )
     parser.add_argument('file2', type=argparse.FileType('r') )
@@ -132,6 +144,9 @@ def get_program_options():
     results['person-name-diff'] = args.person_name_diff
     results['person-date-diff'] = args.person_date_diff
     results['person-place-diff'] = args.person_place_diff
+
+    results['report-name-diff'] = args.report_name_diff
+    results['report-date-diff'] = args.report_date_diff
 
     return results
 
@@ -537,10 +552,6 @@ starts.append(0)
 file_names.append(0)
 
 options = get_program_options()
-
-if not os.path.isdir( options['libpath'] ):
-   print( 'Path to readgedcom is not a directory', file=sys.stderr )
-   sys.exit( 1 )
 
 readgedcom = load_my_module( 'readgedcom', options['libpath'] )
 
