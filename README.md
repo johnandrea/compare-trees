@@ -76,9 +76,9 @@ Test fails if two dates differ by more than this number of daya. Default is 400
 Also for determining if two people match, by comparing life event places.
 Similar to the name comparison. Default is 0.90
 
---libpath=relative-path-to-library
+--libpath=directory-containing-readgedcom
 
-The directory containing the readgedcom library, relative to the . Default is ".", the same location as this program file.
+The path is relative to the program being used. An absolute path will not work. Default is the same location as the program (".").
 
 ## Running ##
 
