@@ -20,7 +20,6 @@ in order to do that run the program again reversing the order of the trees.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2021 John A. Andrea
-v0.2.3
 """
 
 import sys
@@ -36,6 +35,9 @@ show_debug = False
 # for is-same-person testing
 life_events = ['birt', 'deat']
 # maybe add baptism. christening
+
+def get_version():
+    return '0.2.4'
 
 
 def load_my_module( module_name, relative_path ):
@@ -125,6 +127,9 @@ def get_program_options():
     arg_help = 'Same person, report small differences in dates.'
     arg_help += ' Default ' + str(results['report-date-diff'])
     parser.add_argument( '--report-date-diff', default=results['report-date-diff'], type=int, help=arg_help )
+
+    arg_help = 'Show version then exit.'
+    parser.add_argument( '--version', action='version', version=get_version() )
 
     parser.add_argument('file1', type=argparse.FileType('r') )
     parser.add_argument('id1', type=str )
